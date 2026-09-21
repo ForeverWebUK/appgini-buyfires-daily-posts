@@ -184,12 +184,22 @@ def cmd_pick(args):
 
     excl_permalinks = set()
     excl_ranges = set()
+    same_date_permalinks = set()
     for entry in ledger:
         d = Date.fromisoformat(entry["date"])
+        if d == target:
+            # never re-offer a permalink already picked/rejected for this exact
+            # date, regardless of rejection status
+            same_date_permalinks.add(base_url(entry["permalink"]))
+        if entry.get("rejected"):
+            # a rejected pick was never actually posted, so it must not count
+            # toward the 60-day/7-day cooldowns for other dates
+            continue
         if cutoff60 <= d < target:
             excl_permalinks.add(base_url(entry["permalink"]))
         if cutoff7 <= d < target and entry.get("product_range"):
             excl_ranges.add(entry["product_range"])
+    excl_permalinks |= same_date_permalinks
 
     candidates = [
         p for p in catalog["eligible"]
@@ -224,6 +234,33 @@ def cmd_pick(args):
         "candidate_count_before_pick": len(candidates),
         "chosen": chosen,
     }, separators=(",", ":")))
+
+
+def cmd_reject(args):
+    """Mark the most recent (non-rejected) pick for --date as rejected, e.g.
+    because none of its remaining images are genuinely in-situ. A rejected
+    entry keeps an audit trail in the ledger but is excluded from being
+    re-offered for that same date, and never counts toward the 60-day
+    permalink / 7-day product-range cooldowns for other dates since it was
+    never actually posted. Call `pick` again afterwards for a fresh
+    candidate for the same date."""
+    ledger = _load_json(args.ledger, "ledger")
+    idx = None
+    for i in range(len(ledger) - 1, -1, -1):
+        if ledger[i]["date"] == args.date and not ledger[i].get("rejected"):
+            idx = i
+            break
+    if idx is None:
+        print(json.dumps({"error": f"no active pick found for date {args.date} to reject"}))
+        sys.exit(1)
+    ledger[idx]["rejected"] = True
+    ledger[idx]["reject_reason"] = args.reason
+    json.dump(ledger, open(args.ledger, "w"), separators=(",", ":"))
+    print(json.dumps({
+        "date": args.date,
+        "rejected_permalink": ledger[idx]["permalink"],
+        "reason": args.reason,
+    }))
 
 
 PERMALINK_RE = re.compile(r"https://buyfires\.co\.uk/product/[a-zA-Z0-9\-]+/(?:\?[^\s\"]*)?")
@@ -344,6 +381,12 @@ def main():
     p4.add_argument("--linkedin", required=True)
     p4.add_argument("--dates", nargs="+", required=True)
     p4.set_defaults(func=cmd_best_times)
+
+    p5 = sub.add_parser("reject")
+    p5.add_argument("ledger")
+    p5.add_argument("--date", required=True)
+    p5.add_argument("--reason", required=True)
+    p5.set_defaults(func=cmd_reject)
 
     args = ap.parse_args()
     args.func(args)
