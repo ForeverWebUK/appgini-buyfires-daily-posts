@@ -66,6 +66,17 @@ physical product can slip past the cooldown as if it were new. Caught
 and fixed during the first live 7-day run (2026-09-14).
 
 ```
+buyfires.py reject ledger.json --date YYYY-MM-DD --reason "no in-situ image"
+```
+Mark the most recent unrejected `pick` for that date as rejected (e.g. none
+of its remaining images are genuinely in-situ — image content can't be
+judged from the catalog alone, so this is always a manual call). Keeps an
+audit entry, excludes that permalink from being offered again for the same
+date, and never counts against future dates' cooldowns since it was never
+actually posted. Follow with another `pick` call for the same date to get a
+fresh candidate.
+
+```
 buyfires.py best-times --facebook f.json --instagram i.json --linkedin l.json --dates 2026-09-14 ...
 ```
 Given `getBestTimeToPostByNetwork` raw dumps for facebook/instagram/

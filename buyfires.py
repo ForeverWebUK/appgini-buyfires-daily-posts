@@ -24,6 +24,13 @@ Subcommands:
       to the ledger (so the next `pick` call for a later date sees it), and
       print the chosen product + its Pinterest board name as JSON.
 
+  reject <ledger.json> --date YYYY-MM-DD --reason "..."
+      Mark the most recent unrejected ledger pick for --date as rejected
+      (e.g. none of its remaining images are genuinely in-situ). Keeps an
+      audit entry, excludes that permalink from being offered again for the
+      same date on a follow-up `pick` call, and never counts against future
+      dates' cooldowns since it was never actually posted.
+
 Board mapping (category name -> Pinterest board):
   Media Wall Fires                              -> Mediawall Fires
   Electric Stoves                               -> Electric Stoves
@@ -185,6 +192,12 @@ def cmd_pick(args):
     excl_permalinks = set()
     excl_ranges = set()
     for entry in ledger:
+        if entry.get("rejected"):
+            # Never actually posted: doesn't count against any cooldown, but
+            # must not be re-offered for the same date it was rejected on.
+            if entry["date"] == args.date:
+                excl_permalinks.add(base_url(entry["permalink"]))
+            continue
         d = Date.fromisoformat(entry["date"])
         if cutoff60 <= d < target:
             excl_permalinks.add(base_url(entry["permalink"]))
@@ -223,6 +236,35 @@ def cmd_pick(args):
         "fallback_used": fallback_used,
         "candidate_count_before_pick": len(candidates),
         "chosen": chosen,
+    }, separators=(",", ":")))
+
+
+def cmd_reject(args):
+    """Mark the most recent (unrejected) ledger pick for --date as rejected
+    (e.g. no genuine in-situ image among its remaining photos). A rejected
+    entry keeps an audit trail but is excluded from being offered again for
+    the same date, and never counts against future dates' cooldowns since it
+    was never actually posted."""
+    ledger = _load_json(args.ledger, "ledger")
+    idx = None
+    for i in range(len(ledger) - 1, -1, -1):
+        e = ledger[i]
+        if e.get("date") == args.date and not e.get("rejected"):
+            idx = i
+            break
+    if idx is None:
+        print(json.dumps({"error": f"no unrejected ledger entry found for date {args.date}"}))
+        sys.exit(1)
+
+    entry = ledger[idx]
+    entry["rejected"] = True
+    entry["reject_reason"] = args.reason
+    json.dump(ledger, open(args.ledger, "w"), separators=(",", ":"))
+
+    print(json.dumps({
+        "date": args.date,
+        "rejected_permalink": entry["permalink"],
+        "reason": args.reason,
     }, separators=(",", ":")))
 
 
@@ -331,6 +373,12 @@ def main():
     p3.add_argument("--date", required=True)
     p3.add_argument("--seed", type=int, default=None)
     p3.set_defaults(func=cmd_pick)
+
+    p3a = sub.add_parser("reject")
+    p3a.add_argument("ledger")
+    p3a.add_argument("--date", required=True)
+    p3a.add_argument("--reason", required=True)
+    p3a.set_defaults(func=cmd_reject)
 
     p3b = sub.add_parser("build-ledger")
     p3b.add_argument("catalog")
