@@ -1,0 +1,36 @@
+# BuyFires social poster - ranges and products it must NOT pick
+# Last reviewed: 2026-10-13   (review every few months, update the date)
+#
+# HOW IT WORKS
+#   The routine reads this file from the root of this repo (main branch) at the
+#   start of every run, before it picks a product. Edit it right here on GitHub:
+#   no change to the routine is needed. If the file is missing the routine just
+#   carries on with no exclusions.
+#
+# FORMAT - one entry per line
+#   * A product RANGE name, exactly as it appears in the "Product Range"
+#     attribute on the shop (capital letters don't matter).
+#   * OR a full product page address (https://buyfires.co.uk/product/...) to skip
+#     one product. Anything after a "?" in the address is ignored, so one address
+#     covers every size/colour variation of that product.
+#   * Lines starting with # and blank lines are ignored.
+#
+# WHAT BELONGS HERE
+#   Only ranges where EVERY product has no real room photo (just white-background
+#   studio cut-outs, remote-control and app images, accessory shots). The routine
+#   rejects those at its image check anyway, which wastes about 1.5 minutes per
+#   attempt, so listing them skips the wasted time.
+#
+# HOW TO REFRESH
+#   The routine's end-of-run report names the product range of every product it
+#   rejected for having no real photo. If the same range keeps turning up, check
+#   its photos on the shop and add it below. To bring a range back, delete its line.
+
+# Evonic C inset electric fires (75 products; every size and finish shares the
+# same studio cut-outs). Checked 2026-10-13.
+Evonic C1
+Evonic C2
+Evonic C3
+
+# Lumiere HOME Easy Install panoramic media wall fire (studio shots only).
+https://buyfires.co.uk/product/home-easy-install-panoramic-media-wall-fire-by-lumiere/
